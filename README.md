@@ -1,3 +1,64 @@
+This repo contains the code snippets to store original atari resulotion (160 $\times$ 210) state image and corresponding rl stable baselines3 PPO agent's action
+
+## Modifications
+
+`rl_zoo3/enjoy.py` Line: 85 ~ 94
+
+```python
+    parser.add_argument('--atari-env', choices=['BeamRider', 'Breakout', 'Enduro', 'Pong', 'Qbert', 'Seaquest', 'SpaceInvaders', 'MsPacman', 'Asteroids', 'RoadRunner'],
+                        default='Pong', type=str, help='which atari env to use')
+    parser.add_argument('--dataset_path', default='datasets', type=str, help='where the collected dataset to be stored')
+
+    args = parser.parse_args()
+
+    df = pd.DataFrame()
+    df["id"] = ""
+    df["action"] = ""
+```
+Line: 238 ~ 244
+```python
+            if (rui.empty == 0) and (rui.already_reset == 1):
+                save_img(rui.frame, f'{args.dataset_path}/{args.atari_env}/{rui.frame_id}.png')
+                df.loc[len(df)] = [rui.frame_id, action[0]]
+                rui.empty = 1
+                print("CONSUMER DONE")
+            else:
+                break
+```
+Line: 297 ~ 298
+```python
+    df = df.sort_index()
+    df.to_csv(f'{args.dataset_path}/{args.atari_env}/annotations.png', index=False)
+```
+`pathto/python3.8/site-packages/stable_baselines3/common/atari_wrappers.py`
+Line 239 ~ 256
+```python
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        if not rui.already_reset:
+            rui.frame = obs.copy()
+            rui.frame_id += 1
+            rui.empty = 0
+            print("PRODUCER DONE")
+        rui.already_reset += 1
+        return self.observation(obs), info
+
+    def step(self, action):
+        observation, reward, terminated, truncated, info = self.env.step(action)
+        assert((rui.empty == 1))
+        rui.frame = observation.copy()
+        rui.frame_id += 1
+        rui.empty = 0
+        print("PRODUCER DONE")
+        return self.observation(observation), reward, terminated, truncated, info
+```
+Line 9
+```python
+import rl_zoo3.rui_id as rui
+```
+
+---
+
 <!-- [![pipeline status](https://gitlab.com/araffin/rl-baselines3-zoo/badges/master/pipeline.svg)](https://gitlab.com/araffin/rl-baselines3-zoo/-/commits/master) -->
 ![CI](https://github.com/DLR-RM/rl-baselines3-zoo/workflows/CI/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/rl-baselines3-zoo/badge/?version=master)](https://rl-baselines3-zoo.readthedocs.io/en/master/?badge=master)

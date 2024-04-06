@@ -9,12 +9,21 @@ import yaml
 from huggingface_sb3 import EnvironmentName
 from stable_baselines3.common.callbacks import tqdm
 from stable_baselines3.common.utils import set_random_seed
+import pandas as pd
 
 import rl_zoo3.import_envs  # noqa: F401 pylint: disable=unused-import
 from rl_zoo3 import ALGOS, create_test_env, get_saved_hyperparams
 from rl_zoo3.exp_manager import ExperimentManager
 from rl_zoo3.load_from_hub import download_from_hub
 from rl_zoo3.utils import StoreDict, get_model_path
+import rl_zoo3.rui_id as rui
+
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(".."))
+
+from rui_utils import save_img
 
 
 def enjoy() -> None:  # noqa: C901
@@ -73,7 +82,15 @@ def enjoy() -> None:  # noqa: C901
         default=False,
         help="if toggled, display a progress bar using tqdm and rich",
     )
+    parser.add_argument('--atari-env', choices=['BeamRider', 'Breakout', 'Enduro', 'Pong', 'Qbert', 'Seaquest', 'SpaceInvaders', 'MsPacman', 'Asteroids', 'RoadRunner'],
+                        default='Pong', type=str, help='which atari env to use')
+    parser.add_argument('--dataset_path', default='datasets', type=str, help='where the collected dataset to be stored')
+
     args = parser.parse_args()
+
+    df = pd.DataFrame()
+    df["id"] = ""
+    df["action"] = ""
 
     # Going through custom gym packages to let them register in the global registory
     for env_module in args.gym_packages:
@@ -218,6 +235,13 @@ def enjoy() -> None:  # noqa: C901
                 episode_start=episode_start,
                 deterministic=deterministic,
             )
+            if (rui.empty == 0) and (rui.already_reset == 1):
+                save_img(rui.frame, f'{args.dataset_path}/{args.atari_env}/{rui.frame_id}.png')
+                df.loc[len(df)] = [rui.frame_id, action[0]]
+                rui.empty = 1
+                print("CONSUMER DONE")
+            else:
+                break
             obs, reward, done, infos = env.step(action)
 
             episode_start = done
@@ -270,6 +294,8 @@ def enjoy() -> None:  # noqa: C901
         print(f"Mean episode length: {np.mean(episode_lengths):.2f} +/- {np.std(episode_lengths):.2f}")
 
     env.close()
+    df = df.sort_index()
+    df.to_csv(f'{args.dataset_path}/{args.atari_env}/annotations.png', index=False)
 
 
 if __name__ == "__main__":
