@@ -235,8 +235,11 @@ def enjoy() -> None:  # noqa: C901
                 episode_start=episode_start,
                 deterministic=deterministic,
             )
+            exit()
+            print('rui.already_reset ', rui.already_reset)
             if (rui.empty == 0) and (rui.already_reset == 1):
-                save_img(rui.frame, f'{args.dataset_path}/{args.atari_env}/{rui.frame_id}.png')
+                for i in range(4):
+                    save_img(rui.stacked_frames[0][i], f'{args.dataset_path}/{args.atari_env}/{rui.frame_id}_{i}.png')
                 df.loc[len(df)] = [rui.frame_id, action[0]]
                 rui.empty = 1
                 print("CONSUMER DONE")
@@ -295,7 +298,7 @@ def enjoy() -> None:  # noqa: C901
 
     env.close()
     df = df.sort_index()
-    df.to_csv(f'{args.dataset_path}/{args.atari_env}/annotations.png', index=False)
+    df.to_csv(f'{args.dataset_path}/{args.atari_env}/annotations.csv', index=False)
 
 
 if __name__ == "__main__":

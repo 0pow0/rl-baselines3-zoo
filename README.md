@@ -15,10 +15,11 @@ This repo contains the code snippets to store original atari resulotion (160 $\t
     df["id"] = ""
     df["action"] = ""
 ```
-Line: 238 ~ 244
+Line: 238 ~ 245
 ```python
             if (rui.empty == 0) and (rui.already_reset == 1):
-                save_img(rui.frame, f'{args.dataset_path}/{args.atari_env}/{rui.frame_id}.png')
+                for i in range(4):
+                    save_img(rui.stacked_frames[0][i], f'{args.dataset_path}/{args.atari_env}/{rui.frame_id}_{i}.png')
                 df.loc[len(df)] = [rui.frame_id, action[0]]
                 rui.empty = 1
                 print("CONSUMER DONE")
@@ -38,23 +39,56 @@ Line 239 ~ 256
         if not rui.already_reset:
             rui.frame = obs.copy()
             rui.frame_id += 1
-            rui.empty = 0
             print("PRODUCER DONE")
         rui.already_reset += 1
         return self.observation(obs), info
-
+  
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
         assert((rui.empty == 1))
+        if terminated or truncated:
+            rui.terminal_obs = observation.copy()
         rui.frame = observation.copy()
         rui.frame_id += 1
-        rui.empty = 0
         print("PRODUCER DONE")
         return self.observation(observation), reward, terminated, truncated, info
 ```
 Line 9
 ```python
 import rl_zoo3.rui_id as rui
+```
+`pathto/python3.8/site-packages/stable_baselines3/common/vec_env/vec_frame_stack.py`
+Line: 9 ~ 10
+```python
+import rl_zoo3.rui_id as rui
+from gymnasium.spaces.box import Box
+```
+Line: 28 ~ 29
+```python
+        print("rui.stacked_frames")
+        rui.stacked_obs = StackedObservations(venv.num_envs, n_stack, Box(0, 255, (1, 210, 160, 3), np.uint8), 'first')
+```
+Line: 45 ~ 48
+```python
+        assert((rui.empty == 1))
+        rui.frame = rui.frame[np.newaxis, :]
+        if dones[0] and ("terminal_observation" in infos[0]):
+            rui.terminal_obs = rui.terminal_obs[np.newaxis, :]
+            a = infos[0]["terminal_observation"]
+            infos[0]["terminal_observation"] = rui.terminal_obs
+        rui.stacked_frames, _ = rui.stacked_obs.update(rui.frame, dones, infos)
+        rui.empty = 0
+        if dones[0] and ("terminal_observation" in infos[0]):
+            infos[0]["terminal_observation"] = a
+        print("SECOND PRODUCER DONE")
+```
+Line: 59 ~ 62
+```python
+        if rui.already_reset <= 1:
+            rui.frame = rui.frame[np.newaxis, :]
+            rui.stacked_frames = rui.stacked_obs.reset(rui.frame)
+            rui.empty = 0
+            print("SECOND PRODUCER DONE")
 ```
 
 ---
