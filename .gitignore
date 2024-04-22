@@ -19,6 +19,7 @@ hub
 *.mp4
 *.json
 _build/
+datasets/
 
 tests/dummy_env/build/
 

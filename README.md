@@ -68,7 +68,7 @@ Line: 28 ~ 29
         print("rui.stacked_frames")
         rui.stacked_obs = StackedObservations(venv.num_envs, n_stack, Box(0, 255, (1, 210, 160, 3), np.uint8), 'first')
 ```
-Line: 45 ~ 48
+Line: 45 ~ 58
 ```python
         assert((rui.empty == 1))
         rui.frame = rui.frame[np.newaxis, :]
@@ -82,7 +82,7 @@ Line: 45 ~ 48
             infos[0]["terminal_observation"] = a
         print("SECOND PRODUCER DONE")
 ```
-Line: 59 ~ 62
+Line: 69 ~ 73 
 ```python
         if rui.already_reset <= 1:
             rui.frame = rui.frame[np.newaxis, :]
