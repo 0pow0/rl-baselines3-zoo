@@ -90,6 +90,10 @@ Line: 69 ~ 73
             rui.empty = 0
             print("SECOND PRODUCER DONE")
 ```
+`pathto/python3.8/site-packages/stable_baselines3/common/vec_env/vec_frame_stack.py`
+```python
+        return self.get_distribution(observation).get_actions(deterministic=True)
+```
 
 ---
 
