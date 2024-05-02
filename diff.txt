@@ -1,0 +1,203 @@
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/a2c/__pycache__/a2c.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/a2c/__pycache__/a2c.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/a2c/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/a2c/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/a2c/__pycache__/policies.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/a2c/__pycache__/policies.cpython-38.pyc differ
+diff -bur /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/atari_wrappers.py /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/atari_wrappers.py
+--- /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/atari_wrappers.py	2024-05-01 01:59:27.424905000 -0400
++++ /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/atari_wrappers.py	2024-04-22 14:52:07.023305318 -0400
+@@ -6,6 +6,8 @@
+ 
+ from stable_baselines3.common.type_aliases import AtariResetReturn, AtariStepReturn
+ 
++import rui.rui_id as rui
++
+ try:
+     import cv2
+ 
+@@ -13,6 +15,14 @@
+ except ImportError:
+     cv2 = None  # type: ignore[assignment]
+ 
++from PIL import Image
++import torch
++
++# Saving an image using PIL.Image
++# img: (H, W, 3) with floating value
++def save_pil_img(img, path_file):
++    img = img.astype(np.uint8)
++    img = Image.fromarray(img).save(path_file)
+ 
+ class StickyActionEnv(gym.Wrapper[np.ndarray, int, np.ndarray, int]):
+     """
+@@ -234,6 +244,28 @@
+             dtype=env.observation_space.dtype,  # type: ignore[arg-type]
+         )
+ 
++    def reset(self, **kwargs):
++        obs, info = self.env.reset(**kwargs)
++        assert((rui.empty == 1))
++        # if not rui.already_reset:
++        rui.frame = obs.copy()
++        print("RUI ZUO", rui.frame.shape, self.observation(obs).shape)
++        rui.frame_id += 1
++        print("PRODUCER DONE")
++        rui.already_reset += 1
++        return self.observation(obs), info
++  
++    def step(self, action):
++        observation, reward, terminated, truncated, info = self.env.step(action)
++        assert((rui.empty == 1))
++        if terminated or truncated:
++            rui.terminal_obs = observation.copy()
++        rui.frame = observation.copy()
++        
++        rui.frame_id += 1
++        print("PRODUCER DONE")
++        return self.observation(observation), reward, terminated, truncated, info
++
+     def observation(self, frame: np.ndarray) -> np.ndarray:
+         """
+         returns the current observation from a frame
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/envs/__pycache__/bit_flipping_env.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/envs/__pycache__/bit_flipping_env.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/envs/__pycache__/identity_env.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/envs/__pycache__/identity_env.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/envs/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/envs/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/envs/__pycache__/multi_input_envs.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/envs/__pycache__/multi_input_envs.cpython-38.pyc differ
+diff -bur /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/policies.py /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/policies.py
+--- /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/policies.py	2024-05-01 01:59:27.444906086 -0400
++++ /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/policies.py	2024-04-19 18:15:05.797593675 -0400
+@@ -714,7 +714,7 @@
+         :param deterministic: Whether to use stochastic or deterministic actions
+         :return: Taken action according to the policy
+         """
+-        return self.get_distribution(observation).get_actions(deterministic=deterministic)
++        return self.get_distribution(observation).get_actions(deterministic=True)
+ 
+     def evaluate_actions(self, obs: PyTorchObs, actions: th.Tensor) -> Tuple[th.Tensor, th.Tensor, Optional[th.Tensor]]:
+         """
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/atari_wrappers.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/atari_wrappers.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/base_class.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/base_class.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/buffers.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/buffers.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/callbacks.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/callbacks.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/distributions.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/distributions.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/env_checker.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/env_checker.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/env_util.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/env_util.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/evaluation.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/evaluation.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/logger.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/logger.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/monitor.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/monitor.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/noise.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/noise.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/off_policy_algorithm.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/off_policy_algorithm.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/on_policy_algorithm.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/on_policy_algorithm.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/policies.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/policies.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/preprocessing.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/preprocessing.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/results_plotter.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/results_plotter.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/running_mean_std.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/running_mean_std.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/save_util.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/save_util.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/torch_layers.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/torch_layers.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/type_aliases.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/type_aliases.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/utils.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/__pycache__/utils.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/sb2_compat/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/sb2_compat/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/sb2_compat/__pycache__/rmsprop_tf_like.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/sb2_compat/__pycache__/rmsprop_tf_like.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/base_vec_env.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/base_vec_env.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/dummy_vec_env.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/dummy_vec_env.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/patch_gym.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/patch_gym.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/stacked_observations.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/stacked_observations.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/subproc_vec_env.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/subproc_vec_env.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/util.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/util.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_check_nan.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_check_nan.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_extract_dict_obs.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_extract_dict_obs.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_frame_stack.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_frame_stack.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_monitor.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_monitor.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_normalize.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_normalize.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_transpose.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_transpose.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_video_recorder.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/__pycache__/vec_video_recorder.cpython-38.pyc differ
+diff -bur /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/stacked_observations.py /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/stacked_observations.py
+--- /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/stacked_observations.py	2024-05-01 01:59:27.464907174 -0400
++++ /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/stacked_observations.py	2024-04-07 20:42:38.211211708 -0400
+@@ -8,7 +8,6 @@
+ 
+ TObs = TypeVar("TObs", np.ndarray, Dict[str, np.ndarray])
+ 
+-
+ class StackedObservations(Generic[TObs]):
+     """
+     Frame stacking wrapper for data.
+diff -bur /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/vec_frame_stack.py /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/vec_frame_stack.py
+--- /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/common/vec_env/vec_frame_stack.py	2024-05-01 01:59:27.472907609 -0400
++++ /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/common/vec_env/vec_frame_stack.py	2024-04-22 13:59:49.282632742 -0400
+@@ -5,7 +5,8 @@
+ 
+ from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvWrapper
+ from stable_baselines3.common.vec_env.stacked_observations import StackedObservations
+-
++import rui.rui_id as rui
++from gymnasium.spaces.box import Box
+ 
+ class VecFrameStack(VecEnvWrapper):
+     """
+@@ -23,6 +24,10 @@
+             venv.observation_space, (spaces.Box, spaces.Dict)
+         ), "VecFrameStack only works with gym.spaces.Box and gym.spaces.Dict observation spaces"
+ 
++        print("rui.stacked_frames")
++        rui.stacked_obs = StackedObservations(venv.num_envs, n_stack, Box(0, 255, (210, 160, 3), np.uint8), None)
++        # rui.stacked_obs = StackedObservations(venv.num_envs, n_stack, venv.observation_space, channels_order)
++
+         self.stacked_obs = StackedObservations(venv.num_envs, n_stack, venv.observation_space, channels_order)
+         observation_space = self.stacked_obs.stacked_observation_space
+         super().__init__(venv, observation_space=observation_space)
+@@ -36,6 +41,22 @@
+         List[Dict[str, Any]],
+     ]:
+         observations, rewards, dones, infos = self.venv.step_wait()
++
++        assert((rui.empty == 1))
++        rui.frame = rui.frame[np.newaxis, :]
++        if dones[0] and ("terminal_observation" in infos[0]):
++            # rui.terminal_obs = rui.terminal_obs[np.newaxis, :]
++            rui.terminal_obs = rui.terminal_obs
++            a = infos[0]["terminal_observation"]
++            print("a.shape", a.shape)
++            print("rui.terminal_obs.shape", rui.terminal_obs.shape)
++            infos[0]["terminal_observation"] = rui.terminal_obs
++        rui.stacked_frames, _ = rui.stacked_obs.update(rui.frame, dones, infos)
++        rui.empty = 0
++        if dones[0] and ("terminal_observation" in infos[0]):
++            infos[0]["terminal_observation"] = a
++        print("SECOND PRODUCER DONE")
++
+         observations, infos = self.stacked_obs.update(observations, dones, infos)  # type: ignore[arg-type]
+         return observations, rewards, dones, infos
+ 
+@@ -44,5 +65,12 @@
+         Reset all environments
+         """
+         observation = self.venv.reset()
++
++        if rui.already_reset <= 1:
++            rui.frame = rui.frame[np.newaxis, :]
++            rui.stacked_frames = rui.stacked_obs.reset(rui.frame)
++            rui.empty = 0
++            print("SECOND PRODUCER DONE")
++
+         observation = self.stacked_obs.reset(observation)  # type: ignore[arg-type]
+         return observation
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/ddpg/__pycache__/ddpg.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/ddpg/__pycache__/ddpg.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/ddpg/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/ddpg/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/ddpg/__pycache__/policies.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/ddpg/__pycache__/policies.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/dqn/__pycache__/dqn.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/dqn/__pycache__/dqn.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/dqn/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/dqn/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/dqn/__pycache__/policies.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/dqn/__pycache__/policies.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/her/__pycache__/goal_selection_strategy.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/her/__pycache__/goal_selection_strategy.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/her/__pycache__/her_replay_buffer.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/her/__pycache__/her_replay_buffer.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/her/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/her/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/ppo/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/ppo/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/ppo/__pycache__/policies.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/ppo/__pycache__/policies.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/ppo/__pycache__/ppo.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/ppo/__pycache__/ppo.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/sac/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/sac/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/sac/__pycache__/policies.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/sac/__pycache__/policies.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/sac/__pycache__/sac.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/sac/__pycache__/sac.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/td3/__pycache__/__init__.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/td3/__pycache__/__init__.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/td3/__pycache__/policies.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/td3/__pycache__/policies.cpython-38.pyc differ
+Binary files /home/rzuo02/miniconda3/envs/pytorch_gpu/lib/python3.8/site-packages/stable_baselines3/td3/__pycache__/td3.cpython-38.pyc and /home/rzuo02/miniconda3/envs/rl_baselines3/lib/python3.8/site-packages/stable_baselines3/td3/__pycache__/td3.cpython-38.pyc differ
