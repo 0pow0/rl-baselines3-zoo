@@ -1,5 +1,9 @@
 This repo contains the code snippets to store original atari resulotion (160 $\times$ 210) state image and corresponding rl stable baselines3 PPO agent's action
 
+```python
+python enjoy.py --no-render --algo ppo --env EnduroNoFrameskip-v4 --folder rl-trained-agents/ -n 10000 --atari-env Enduro --dataset_path foo
+```
+
 ## Modifications
 
 `rl_zoo3/enjoy.py` Line: 85 ~ 94
